@@ -8,6 +8,10 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 </head>
 <body>
   <div id="root"></div>
@@ -15,19 +19,50 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
+    // Initialize Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyALEreDH3w7-KAAH3DNlclbRAMA6upWMjA",
+      authDomain: "sms-funding.firebaseapp.com",
+      databaseURL: "https://sms-funding-default-rtdb.firebaseio.com",
+      projectId: "sms-funding",
+      storageBucket: "sms-funding.firebasestorage.app",
+      messagingSenderId: "1022552202404",
+      appId: "1:1022552202404:web:4f1d158c1bae0d64c01a31",
+      measurementId: "G-RDDGCJ302W"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
     function FundingTracker() {
       const [contributions, setContributions] = useState([]);
       const [selectedPerson, setSelectedPerson] = useState('');
       const [amount, setAmount] = useState('');
       const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+      const [loading, setLoading] = useState(true);
 
       const people = ['Shafin', 'Muwaz', 'Srestho'];
 
+      // Load contributions from Firebase
       useEffect(() => {
-        const saved = localStorage.getItem('sms-contributions');
-        if (saved) {
-          setContributions(JSON.parse(saved));
-        }
+        const contributionsRef = database.ref('contributions');
+        
+        contributionsRef.on('value', (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            const contribArray = Object.keys(data).map(key => ({
+              id: key,
+              ...data[key]
+            }));
+            contribArray.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            setContributions(contribArray);
+          } else {
+            setContributions([]);
+          }
+          setLoading(false);
+        });
+
+        return () => contributionsRef.off();
       }, []);
 
       const addContribution = () => {
@@ -37,16 +72,15 @@
         }
 
         const newContribution = {
-          id: Date.now(),
           person: selectedPerson,
           amount: parseFloat(amount),
           date: date,
           timestamp: new Date().toISOString()
         };
 
-        const updated = [newContribution, ...contributions];
-        setContributions(updated);
-        localStorage.setItem('sms-contributions', JSON.stringify(updated));
+        // Push to Firebase
+        database.ref('contributions').push(newContribution);
+
         setAmount('');
         setSelectedPerson('');
         setDate(new Date().toISOString().split('T')[0]);
@@ -54,9 +88,7 @@
 
       const deleteContribution = (id) => {
         if (!confirm('Delete this contribution?')) return;
-        const updated = contributions.filter(c => c.id !== id);
-        setContributions(updated);
-        localStorage.setItem('sms-contributions', JSON.stringify(updated));
+        database.ref('contributions/' + id).remove();
       };
 
       const getTotalByPerson = (person) => {
@@ -69,12 +101,24 @@
         return contributions.reduce((sum, c) => sum + c.amount, 0);
       };
 
+      if (loading) {
+        return (
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading SMS Funding Tracker...</p>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
           <div className="max-w-4xl mx-auto">
             <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
               <h1 className="text-3xl font-bold text-gray-800 mb-2">SMS Funding Tracker</h1>
-              <p className="text-gray-600 mb-6">Log daily contributions in Taka (৳)</p>
+              <p className="text-gray-600 mb-2">Log daily contributions in Taka (৳)</p>
+              <p className="text-sm text-green-600 mb-6">🟢 Live - All members can see updates</p>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div>
