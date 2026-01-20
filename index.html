@@ -36,12 +36,16 @@
 
     function FundingTracker() {
       const [contributions, setContributions] = useState([]);
+      const [deletionHistory, setDeletionHistory] = useState([]);
       const [selectedPerson, setSelectedPerson] = useState('');
       const [amount, setAmount] = useState('');
       const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
       const [loading, setLoading] = useState(true);
+      const [deletedBy, setDeletedBy] = useState('');
 
       const people = ['Shafin', 'Muwaz', 'Srestho'];
+      const GOAL_AMOUNT = 500;
+      const ARDUINO_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Arduino_Uno_-_R3.jpg/500px-Arduino_Uno_-_R3.jpg";
 
       // Load contributions from Firebase
       useEffect(() => {
@@ -65,6 +69,27 @@
         return () => contributionsRef.off();
       }, []);
 
+      // Load deletion history from Firebase
+      useEffect(() => {
+        const deletionsRef = database.ref('deletions');
+        
+        deletionsRef.on('value', (snapshot) => {
+          const data = snapshot.val();
+          if (data) {
+            const deletionArray = Object.keys(data).map(key => ({
+              id: key,
+              ...data[key]
+            }));
+            deletionArray.sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+            setDeletionHistory(deletionArray);
+          } else {
+            setDeletionHistory([]);
+          }
+        });
+
+        return () => deletionsRef.off();
+      }, []);
+
       const addContribution = () => {
         if (!selectedPerson || !amount || !date) {
           alert('Please fill all fields');
@@ -78,7 +103,6 @@
           timestamp: new Date().toISOString()
         };
 
-        // Push to Firebase
         database.ref('contributions').push(newContribution);
 
         setAmount('');
@@ -86,9 +110,29 @@
         setDate(new Date().toISOString().split('T')[0]);
       };
 
-      const deleteContribution = (id) => {
-        if (!confirm('Delete this contribution?')) return;
-        database.ref('contributions/' + id).remove();
+      const deleteContribution = (contribution) => {
+        if (!deletedBy) {
+          alert('Please select who is deleting this contribution');
+          return;
+        }
+
+        if (!confirm(`Delete ${contribution.person}'s ৳${contribution.amount} contribution?`)) return;
+
+        // Log deletion in history
+        const deletionRecord = {
+          deletedBy: deletedBy,
+          originalContribution: {
+            person: contribution.person,
+            amount: contribution.amount,
+            date: contribution.date
+          },
+          deletedAt: new Date().toISOString()
+        };
+
+        database.ref('deletions').push(deletionRecord);
+        database.ref('contributions/' + contribution.id).remove();
+        
+        setDeletedBy('');
       };
 
       const getTotalByPerson = (person) => {
@@ -99,6 +143,14 @@
 
       const getGrandTotal = () => {
         return contributions.reduce((sum, c) => sum + c.amount, 0);
+      };
+
+      const getProgressPercentage = () => {
+        return Math.min((getGrandTotal() / GOAL_AMOUNT) * 100, 100);
+      };
+
+      const getRemainingAmount = () => {
+        return Math.max(GOAL_AMOUNT - getGrandTotal(), 0);
       };
 
       if (loading) {
@@ -165,6 +217,56 @@
               </button>
             </div>
 
+            {/* Goal Section */}
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">🎯 Current Goal: Arduino Uno</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="flex items-center justify-center">
+                  <img 
+                    src={ARDUINO_IMAGE} 
+                    alt="Arduino Uno" 
+                    className="rounded-lg shadow-md max-w-full h-auto"
+                  />
+                </div>
+                
+                <div className="flex flex-col justify-center">
+                  <div className="mb-4">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-700 font-semibold">Progress</span>
+                      <span className="text-gray-700 font-semibold">
+                        ৳{getGrandTotal()} / ৳{GOAL_AMOUNT}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-6">
+                      <div
+                        className="bg-gradient-to-r from-green-400 to-green-600 h-6 rounded-full transition-all duration-500 flex items-center justify-center"
+                        style={{ width: `${getProgressPercentage()}%` }}
+                      >
+                        <span className="text-white text-xs font-bold">
+                          {getProgressPercentage().toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {getGrandTotal() >= GOAL_AMOUNT ? (
+                    <div className="bg-green-100 border-2 border-green-500 rounded-lg p-4 text-center">
+                      <p className="text-2xl font-bold text-green-700">🎉 Goal Achieved!</p>
+                      <p className="text-green-600">You can buy the Arduino Uno!</p>
+                    </div>
+                  ) : (
+                    <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+                      <p className="text-lg font-semibold text-blue-800">
+                        ৳{getRemainingAmount()} remaining
+                      </p>
+                      <p className="text-sm text-blue-600">Keep going! You're doing great!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               {people.map(person => (
                 <div key={person} className="bg-white rounded-lg shadow p-4">
@@ -181,7 +283,7 @@
               <p className="text-4xl font-bold">৳{getGrandTotal().toLocaleString()}</p>
             </div>
 
-            <div className="bg-white rounded-lg shadow-lg p-6">
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">Contribution History</h2>
               
               {contributions.length === 0 ? (
@@ -202,17 +304,63 @@
                         </div>
                         <p className="text-sm text-gray-500">{contribution.date}</p>
                       </div>
-                      <button
-                        onClick={() => deleteContribution(contribution.id)}
-                        className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded"
-                      >
-                        🗑️
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={deletedBy}
+                          onChange={(e) => setDeletedBy(e.target.value)}
+                          className="px-2 py-1 border border-gray-300 rounded text-sm"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <option value="">Who's deleting?</option>
+                          {people.map(person => (
+                            <option key={person} value={person}>{person}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => deleteContribution(contribution)}
+                          className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
+
+            {/* Deletion History */}
+            {deletionHistory.length > 0 && (
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg shadow-lg p-6">
+                <h2 className="text-xl font-bold text-red-800 mb-4">🗑️ Deletion History</h2>
+                <p className="text-sm text-red-600 mb-4">All deletions are logged for transparency</p>
+                
+                <div className="space-y-2">
+                  {deletionHistory.map(deletion => (
+                    <div
+                      key={deletion.id}
+                      className="p-4 bg-white rounded-lg border border-red-200"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-gray-800">
+                            <span className="text-red-600">{deletion.deletedBy}</span> deleted{' '}
+                            <span className="text-indigo-600">{deletion.originalContribution.person}'s</span>{' '}
+                            contribution
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            Amount: ৳{deletion.originalContribution.amount} | Date: {deletion.originalContribution.date}
+                          </p>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          {new Date(deletion.deletedAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
