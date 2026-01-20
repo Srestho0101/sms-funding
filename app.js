@@ -1,0 +1,401 @@
+const { useState, useEffect } = React;
+
+// Initialize Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyALEreDH3w7-KAAH3DNlclbRAMA6upWMjA",
+  authDomain: "sms-funding.firebaseapp.com",
+  databaseURL: "https://sms-funding-default-rtdb.firebaseio.com",
+  projectId: "sms-funding",
+  storageBucket: "sms-funding.firebasestorage.app",
+  messagingSenderId: "1022552202404",
+  appId: "1:1022552202404:web:4f1d158c1bae0d64c01a31",
+  measurementId: "G-RDDGCJ302W"
+};
+
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+function FundingTracker() {
+  const [contributions, setContributions] = useState([]);
+  const [deletionHistory, setDeletionHistory] = useState([]);
+  const [selectedPerson, setSelectedPerson] = useState('');
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [loading, setLoading] = useState(true);
+  const [deletedBy, setDeletedBy] = useState('');
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [previousTotal, setPreviousTotal] = useState(0);
+
+  const people = ['Srestho', 'Shafin', 'Muwaz'];
+  const GOAL_AMOUNT = 500;
+  const ARDUINO_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Arduino_Uno_-_R3.jpg/500px-Arduino_Uno_-_R3.jpg";
+
+  // Create confetti
+  const createConfetti = () => {
+    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+    const confettiCount = 50;
+    
+    for (let i = 0; i < confettiCount; i++) {
+      const confetti = document.createElement('div');
+      confetti.className = 'confetti';
+      confetti.style.left = Math.random() * 100 + '%';
+      confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+      confetti.style.animationDelay = Math.random() * 2 + 's';
+      confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+      document.body.appendChild(confetti);
+      
+      setTimeout(() => confetti.remove(), 5000);
+    }
+  };
+
+  // Load contributions from Firebase
+  useEffect(() => {
+    const contributionsRef = database.ref('contributions');
+    
+    contributionsRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const contribArray = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key]
+        }));
+        contribArray.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        // Check if new contribution was added
+        const newTotal = contribArray.reduce((sum, c) => sum + c.amount, 0);
+        if (previousTotal > 0 && newTotal > previousTotal) {
+          setShowCelebration(true);
+          createConfetti();
+          setTimeout(() => setShowCelebration(false), 3000);
+        }
+        setPreviousTotal(newTotal);
+        
+        setContributions(contribArray);
+      } else {
+        setContributions([]);
+      }
+      setLoading(false);
+    });
+
+    return () => contributionsRef.off();
+  }, [previousTotal]);
+
+  // Load deletion history from Firebase
+  useEffect(() => {
+    const deletionsRef = database.ref('deletions');
+    
+    deletionsRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const deletionArray = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key]
+        }));
+        deletionArray.sort((a, b) => new Date(b.deletedAt) - new Date(a.deletedAt));
+        setDeletionHistory(deletionArray);
+      } else {
+        setDeletionHistory([]);
+      }
+    });
+
+    return () => deletionsRef.off();
+  }, []);
+
+  const addContribution = () => {
+    if (!selectedPerson || !amount || !date) {
+      alert('Please fill all fields');
+      return;
+    }
+
+    const newContribution = {
+      person: selectedPerson,
+      amount: parseFloat(amount),
+      date: date,
+      timestamp: new Date().toISOString()
+    };
+
+    database.ref('contributions').push(newContribution);
+
+    setAmount('');
+    setSelectedPerson('');
+    setDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const deleteContribution = (contribution) => {
+    if (!deletedBy) {
+      alert('Please select who is deleting this contribution');
+      return;
+    }
+
+    if (!confirm(`Delete ${contribution.person}'s ৳${contribution.amount} contribution?`)) return;
+
+    const deletionRecord = {
+      deletedBy: deletedBy,
+      originalContribution: {
+        person: contribution.person,
+        amount: contribution.amount,
+        date: contribution.date
+      },
+      deletedAt: new Date().toISOString()
+    };
+
+    database.ref('deletions').push(deletionRecord);
+    database.ref('contributions/' + contribution.id).remove();
+    
+    setDeletedBy('');
+  };
+
+  const getTotalByPerson = (person) => {
+    return contributions
+      .filter(c => c.person === person)
+      .reduce((sum, c) => sum + c.amount, 0);
+  };
+
+  const getGrandTotal = () => {
+    return contributions.reduce((sum, c) => sum + c.amount, 0);
+  };
+
+  const getProgressPercentage = () => {
+    return Math.min((getGrandTotal() / GOAL_AMOUNT) * 100, 100);
+  };
+
+  const getRemainingAmount = () => {
+    return Math.max(GOAL_AMOUNT - getGrandTotal(), 0);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading SMS Funding Tracker...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      {showCelebration && (
+        <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 text-6xl celebrate">
+          🎉
+        </div>
+      )}
+      
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">SMS Funding Tracker</h1>
+          <p className="text-gray-600 mb-2">Log daily contributions in Taka (৳)</p>
+          <p className="text-sm text-green-600 mb-6">🟢 Live - All members can see updates</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Person</label>
+              <select
+                value={selectedPerson}
+                onChange={(e) => setSelectedPerson(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Select person</option>
+                {people.map(person => (
+                  <option key={person} value={person}>{person}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Amount (৳)</label>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="Enter amount"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={addContribution}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          >
+            ➕ Log Contribution
+          </button>
+        </div>
+
+        {/* Goal Section */}
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">🎯 Current Goal: Arduino Uno</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex items-center justify-center">
+              <img 
+                src={ARDUINO_IMAGE} 
+                alt="Arduino Uno" 
+                className="rounded-lg shadow-md max-w-full h-auto"
+              />
+            </div>
+            
+            <div className="flex flex-col justify-center">
+              <div className="mb-4">
+                <div className="flex justify-between mb-2">
+                  <span className="text-gray-700 font-semibold">Progress</span>
+                  <span className="text-gray-700 font-semibold">
+                    ৳{getGrandTotal()} / ৳{GOAL_AMOUNT}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-8 relative overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-green-400 via-green-500 to-green-600 h-8 rounded-full transition-all duration-500 flex items-center justify-center progress-bar-glow relative"
+                    style={{ width: `${getProgressPercentage()}%` }}
+                  >
+                    {/* Sparkles */}
+                    {getProgressPercentage() > 5 && (
+                      <>
+                        <div className="sparkle"></div>
+                        <div className="sparkle"></div>
+                        <div className="sparkle"></div>
+                        <div className="sparkle"></div>
+                        <div className="sparkle"></div>
+                      </>
+                    )}
+                    <span className="text-white text-sm font-bold relative z-10">
+                      {getProgressPercentage().toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              {getGrandTotal() >= GOAL_AMOUNT ? (
+                <div className="bg-green-100 border-2 border-green-500 rounded-lg p-4 text-center celebrate">
+                  <p className="text-2xl font-bold text-green-700">🎉 Goal Achieved!</p>
+                  <p className="text-green-600">You can buy the Arduino Uno!</p>
+                </div>
+              ) : (
+                <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+                  <p className="text-lg font-semibold text-blue-800">
+                    ৳{getRemainingAmount()} remaining
+                  </p>
+                  <p className="text-sm text-blue-600">Keep going! You're doing great!</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          {people.map(person => (
+            <div key={person} className="bg-white rounded-lg shadow p-4">
+              <h3 className="font-semibold text-gray-800 mb-2">👤 {person}</h3>
+              <p className="text-2xl font-bold text-indigo-600">
+                ৳{getTotalByPerson(person).toLocaleString()}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg shadow-lg p-6 mb-6 text-white">
+          <h2 className="text-xl font-semibold mb-2">Total Collected</h2>
+          <p className="text-4xl font-bold">৳{getGrandTotal().toLocaleString()}</p>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Contribution History</h2>
+          
+          {contributions.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No contributions logged yet</p>
+          ) : (
+            <div className="space-y-2">
+              {contributions.map(contribution => (
+                <div
+                  key={contribution.id}
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <span className="font-semibold text-gray-800">{contribution.person}</span>
+                      <span className="text-lg font-bold text-indigo-600">
+                        ৳{contribution.amount.toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500">{contribution.date}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={deletedBy}
+                      onChange={(e) => setDeletedBy(e.target.value)}
+                      className="px-2 py-1 border border-gray-300 rounded text-sm"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <option value="">Who's deleting?</option>
+                      {people.map(person => (
+                        <option key={person} value={person}>{person}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => deleteContribution(contribution)}
+                      className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded transition-colors"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Deletion History */}
+        {deletionHistory.length > 0 && (
+          <div className="bg-red-50 border-2 border-red-200 rounded-lg shadow-lg p-6 mb-6">
+            <h2 className="text-xl font-bold text-red-800 mb-4">🗑️ Deletion History</h2>
+            <p className="text-sm text-red-600 mb-4">All deletions are logged for transparency</p>
+            
+            <div className="space-y-2">
+              {deletionHistory.map(deletion => (
+                <div
+                  key={deletion.id}
+                  className="p-4 bg-white rounded-lg border border-red-200"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        <span className="text-red-600">{deletion.deletedBy}</span> deleted{' '}
+                        <span className="text-indigo-600">{deletion.originalContribution.person}'s</span>{' '}
+                        contribution
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Amount: ৳{deletion.originalContribution.amount} | Date: {deletion.originalContribution.date}
+                      </p>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {new Date(deletion.deletedAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="footer">
+          <div className="footer-company">⚡ Designed in Stark 98 HQ</div>
+          <div className="footer-credit">Made by Srestho</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<FundingTracker />);
