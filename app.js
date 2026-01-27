@@ -691,43 +691,6 @@ Based on last 7 days
 )}
 </div>
 
-{/* Donation Section */}
-<div className="mb-6 rounded-2xl shadow-lg p-6" style={ {
-background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-color: 'white'
-}}>
-<h2 className="text-xl font-bold mb-2">💝 Make The World Better</h2>
-<p className="text-sm opacity-90 mb-4">
-Zakah (10% of total)
-</p>
-
-<div className="bg-white bg-opacity-20 rounded-lg p-4">
-<div className="flex justify-between items-center">
-<div>
-<p className="text-sm opacity-90">
-Total Collected
-</p>
-<p className="text-2xl font-bold">
-৳{getGrandTotal().toFixed(0)}
-</p>
-</div>
-<div className="text-right">
-<p className="text-sm opacity-90">
-For Donation
-</p>
-<p className="text-2xl font-bold">
-৳{getDonationAmount().toFixed(0)}
-</p>
-</div>
-</div>
-</div>
-
-<div className="mt-3 bg-white bg-opacity-20 rounded-lg p-3">
-<p className="text-sm font-semibold">
-After donation: ৳{getAfterDonation().toFixed(0)}
-</p>
-</div>
-</div>
 
 {/* Individual Totals */}
 <div className="grid grid-cols-3 gap-3 mb-6">
