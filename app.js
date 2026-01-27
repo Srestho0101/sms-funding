@@ -827,16 +827,18 @@ Based on last 7 days
             ৳{deletion.originalContribution.amount}
           </p>
           <p className="text-xs" style={{
-            color: darkMode ? '#cbd5e1' : '#6b7280'
-          }}>
-            {new Date(deletion.deletedAt).toLocaleString()}
-          </p>
-        </div>
-      ))}
-    </div>
-  )}
+color: darkMode ? '#cbd5e1' : '#6b7280'
+        }}>
+          {new Date(deletion.deletedAt).toLocaleString()}
+        </p>
+      </div>
+    ))}
+  </div>
+)}
 </div>
 )}
+</div>
+);
 
 // Render Stats Tab
 const renderStats = () => (
