@@ -211,6 +211,8 @@ setStreaks] = useState( {});
 const [showInstallPrompt,
 setShowInstallPrompt] = useState(false);
 const deferredPrompt = useRef(null);
+const [historyCollapsed, setHistoryCollapsed] = useState(false);
+const [deletionCollapsed, setDeletionCollapsed] = useState(false);
 
 // Check authentication
 useEffect(() => {
@@ -434,11 +436,11 @@ return contributions.reduce((sum, c) => sum + c.amount, 0);
 };
 
 const getDonationAmount = () => {
-return (getGrandTotal() * DONATION_PERCENTAGE) / 100;
+  return 0; // Zakah removed
 };
 
 const getAfterDonation = () => {
-return getGrandTotal() - getDonationAmount();
+  return getGrandTotal(); // No zakah deduction
 };
 
 const getProgressPercentage = () => {
@@ -707,101 +709,134 @@ Based on last 7 days
 </div>
 
 {/* Contribution History */}
-<div className="rounded-2xl shadow-lg p-6 mb-6" style={ { background: 'var(--bg-secondary)' }}>
-<h2 className="text-xl font-bold mb-4" style={ { color: 'var(--text-primary)' }}>
-History
-</h2>
+<div className="rounded-2xl shadow-lg p-6 mb-6" style={{ background: 'var(--bg-secondary)' }}>
+  <div 
+    className="flex justify-between items-center cursor-pointer"
+    onClick={() => setHistoryCollapsed(!historyCollapsed)}
+  >
+    <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+      History ({contributions.length})
+    </h2>
+    <button className="text-2xl" style={{ color: 'var(--text-primary)' }}>
+      {historyCollapsed ? '▼' : '▲'}
+    </button>
+  </div>
 
-{contributions.length === 0 ? (
-<p className="text-center py-8" style={ { color: 'var(--text-secondary)' }}>
-No contributions yet
-</p>
-): (
-<div className="space-y-2">
-{contributions.map(contribution => (
-<div
-key={contribution.id}
-className="p-4 rounded-lg"
-style={ { background: 'var(--bg-primary)' }}
->
-<div className="flex justify-between items-start mb-2">
-<div className="flex-1">
-<div className="flex items-center gap-2 mb-1">
-<span className="font-bold" style={ { color: 'var(--text-primary)' }}>
-{contribution.person}
-</span>
-<span className="text-lg font-bold" style={ { color: 'var(--accent)' }}>
-৳{contribution.amount}
-</span>
-</div>
-<div className="text-xs" style={ { color: 'var(--text-secondary)' }}>
-{contribution.date}
-</div>
-{contribution.note && (
-<div className="text-sm mt-1 italic" style={ { color: 'var(--text-secondary)' }}>
-"{contribution.note}"
-</div>
-)}
-</div>
+  {!historyCollapsed && (
+    <>
+      {contributions.length === 0 ? (
+        <p className="text-center py-8 mt-4" style={{ color: 'var(--text-secondary)' }}>
+          No contributions yet
+        </p>
+      ) : (
+        <div className="space-y-2 mt-4">
+          {contributions.map(contribution => (
+            <div
+              key={contribution.id}
+              className="p-4 rounded-lg"
+              style={{ background: 'var(--bg-primary)' }}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-bold" style={{ color: 'var(--text-primary)' }}>
+                      {contribution.person}
+                    </span>
+                    <span className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+                      ৳{contribution.amount}
+                    </span>
+                  </div>
+                  <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    {contribution.date}
+                  </div>
+                  {contribution.note && (
+                    <div className="text-sm mt-1 italic" style={{ color: 'var(--text-secondary)' }}>
+                      "{contribution.note}"
+                    </div>
+                  )}
+                </div>
 
-<div className="flex items-center gap-2">
-<select
-value={deletedBy}
-onChange={(e) => setDeletedBy(e.target.value)}
-className="px-2 py-1 border rounded text-xs"
-style={ {
-background: 'var(--bg-secondary)',
-color: 'var(--text-primary)',
-borderColor: 'var(--border-color)'
-}}
->
-<option value="">Delete?</option>
-{PEOPLE.map(person => (
-<option key={person} value={person}>{person}</option>
-))}
-</select>
-<button
-onClick={() => deleteContribution(contribution)}
-className="text-red-500 text-xl"
->
-🗑️
-</button>
-</div>
-</div>
-</div>
-))}
-</div>
-)}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={deletedBy}
+                    onChange={(e) => setDeletedBy(e.target.value)}
+                    className="px-2 py-1 border rounded text-xs"
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-primary)',
+                      borderColor: 'var(--border-color)'
+                    }}
+                  >
+                    <option value="">Delete?</option>
+                    {PEOPLE.map(person => (
+                      <option key={person} value={person}>{person}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => deleteContribution(contribution)}
+                    className="text-red-500 text-xl"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  )}
 </div>
 
 {/* Deletion History */}
 {deletionHistory.length > 0 && (
-<div className="rounded-2xl shadow-lg p-6 mb-6 bg-red-50 border-2 border-red-200">
-<h2 className="text-xl font-bold text-red-800 mb-4">
-🗑️ Deletion History
-</h2>
+<div className="rounded-2xl shadow-lg p-6 mb-6" style={{
+  background: darkMode ? '#7f1d1d' : '#fee2e2',
+  border: `2px solid ${darkMode ? '#991b1b' : '#fca5a5'}`
+}}>
+  <div 
+    className="flex justify-between items-center cursor-pointer"
+    onClick={() => setDeletionCollapsed(!deletionCollapsed)}
+  >
+    <h2 className="text-xl font-bold" style={{
+      color: darkMode ? '#fecaca' : '#991b1b'
+    }}>
+      🗑️ Deletion History ({deletionHistory.length})
+    </h2>
+    <button className="text-2xl">
+      {deletionCollapsed ? '▼' : '▲'}
+    </button>
+  </div>
 
-<div className="space-y-2">
-{deletionHistory.map(deletion => (
-<div
-key={deletion.id}
-className="p-3 bg-white rounded-lg border border-red-200"
->
-<p className="font-semibold text-gray-800 text-sm">
-<span className="text-red-600">{deletion.deletedBy}</span> deleted{' '}
-<span className="text-indigo-600">{deletion.originalContribution.person}'s</span>{' '}
-৳{deletion.originalContribution.amount}
-</p>
-<p className="text-xs text-gray-500">
-{new Date(deletion.deletedAt).toLocaleString()}
-</p>
-</div>
-))}
-</div>
+  {!deletionCollapsed && (
+    <div className="space-y-2 mt-4">
+      {deletionHistory.map(deletion => (
+        <div
+          key={deletion.id}
+          className="p-3 rounded-lg"
+          style={{
+            background: darkMode ? '#1e293b' : '#ffffff',
+            border: `1px solid ${darkMode ? '#991b1b' : '#fca5a5'}`
+          }}
+        >
+          <p className="font-semibold text-sm" style={{
+            color: darkMode ? '#f1f5f9' : '#1f2937'
+          }}>
+            <span style={{ color: darkMode ? '#fca5a5' : '#dc2626' }}>{deletion.deletedBy}</span> deleted{' '}
+            <span style={{ color: 'var(--accent)' }}>{deletion.originalContribution.person}'s</span>{' '}
+            ৳{deletion.originalContribution.amount}
+          </p>
+          <p className="text-xs" style={{
+            color: darkMode ? '#cbd5e1' : '#6b7280'
+          }}>
+            {new Date(deletion.deletedAt).toLocaleString()}
+          </p>
+        </div>
+      ))}
+    </div>
+  )}
 </div>
 )}
-</div>
-);
 
 // Render Stats Tab
 const renderStats = () => (
