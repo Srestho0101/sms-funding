@@ -223,6 +223,29 @@ setAuthLoading(false);
 return () => unsubscribe();
 }, []);
 
+// For the native app feel
+useEffect(() => {
+  let startY = 0;
+  
+  const handleTouchStart = (e) => {
+    startY = e.touches[0].clientY;
+  };
+  
+  const handleTouchMove = (e) => {
+    if (window.scrollY === 0 && e.touches[0].clientY > startY + 100) {
+      window.location.reload();
+    }
+  };
+  
+  document.addEventListener('touchstart', handleTouchStart);
+  document.addEventListener('touchmove', handleTouchMove);
+  
+  return () => {
+    document.removeEventListener('touchstart', handleTouchStart);
+    document.removeEventListener('touchmove', handleTouchMove);
+  };
+}, []);
+
 // PWA Install Prompt
 useEffect(() => {
 const handler = (e) => {
@@ -266,14 +289,20 @@ localStorage.setItem('darkMode', JSON.stringify(darkMode));
 
 // Create confetti
 const createConfetti = () => {
-const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+const colors = [
+  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+  'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+  'linear-gradient(135deg, #fa709a 0%, #fee140 100%)'
+];
 const confettiCount = 50;
 
 for (let i = 0; i < confettiCount; i++) {
 const confetti = document.createElement('div');
 confetti.className = 'confetti';
 confetti.style.left = Math.random() * 100 + '%';
-confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
 confetti.style.animationDelay = Math.random() * 2 + 's';
 confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
 document.body.appendChild(confetti);
@@ -447,6 +476,23 @@ const getProgressPercentage = () => {
 return Math.min((getAfterDonation() / GOAL_AMOUNT) * 100, 100);
 };
 
+const getMilestoneMessage = () => {
+  const progress = getProgressPercentage();
+  
+  if (progress >= 100) return "🎉 Goal Crushed!";
+  if (progress >= 90) return "🔥 Almost There!";
+  if (progress >= 75) return "💪 Keep Pushing!";
+  if (progress >= 50) return "⚡ Halfway Hero!";
+  if (progress >= 25) return "🚀 Great Start!";
+  return "🌱 Let's Grow!";
+};
+
+<div className="text-center mt-2">
+  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+    {getMilestoneMessage()}
+  </span>
+</div>
+
 const getRemainingAmount = () => {
 return Math.max(GOAL_AMOUNT - getAfterDonation(), 0);
 };
@@ -567,9 +613,9 @@ const weeklyStats = getWeeklyStats();
 
 // Render Home Tab
 const renderHome = () => (
-<div className="p-4 max-w-4xl mx-auto pb-20">
+<div className="p-4 max-w-4xl mx-auto pb-20 fade-in">
 {/* Header */}
-<div className="mb-6 rounded-2xl shadow-lg p-6" style={ { background: 'var(--bg-secondary)' }}>
+<div className="mb-6 rounded-2xl shadow-lg p-6 glass-card">
 <div className="flex justify-between items-center mb-4">
 <div>
 <h1 className="text-2xl font-bold" style={ { color: 'var(--text-primary)' }}>
@@ -902,7 +948,7 @@ const renderStats = () => {
   const maxDaily = Math.max(...dailyTotals.map(d => d.total), 1);
 
   return (
-    <div className="p-4 max-w-4xl mx-auto pb-20">
+    <div className="p-4 max-w-4xl mx-auto pb-20 fade-in">
       
       {/* Overview Cards */}
       <div className="grid grid-cols-3 gap-3 mb-6">
