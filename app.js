@@ -26,40 +26,38 @@ const GOAL_AMOUNT = 500;
 const DONATION_PERCENTAGE = 10;
 const ARDUINO_IMAGE = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/Arduino_Uno_-_R3.jpg/500px-Arduino_Uno_-_R3.jpg";
 
-// Skeleton Loader Component
-function SkeletonLoader() {
-  return React.createElement('div', {
-    className: 'min-h-screen p-4',
-    style: {
-      background: 'var(--bg-primary)'
-    }
-  },
-    React.createElement('div', {
-      className: 'max-w-4xl mx-auto space-y-4'
-    },
-      React.createElement('div', {
-        className: 'skeleton h-32 w-full'
-      }),
-      React.createElement('div', {
-        className: 'skeleton h-64 w-full'
-      }),
-      React.createElement('div', {
-        className: 'grid grid-cols-3 gap-4'
-      },
-        React.createElement('div', {
-          className: 'skeleton h-24'
-        }),
-        React.createElement('div', {
-          className: 'skeleton h-24'
-        }),
-        React.createElement('div', {
-          className: 'skeleton h-24'
-        })
-      ),
-      React.createElement('div', {
-        className: 'skeleton h-48 w-full'
-      })
-    )
+// Rocket Loader Component
+function RocketLoader() {
+  return (
+    <div className="rocket-loader-container">
+      <div className="rocket">
+        {/* Rocket Nose */}
+        <div className="rocket-nose"></div>
+        
+        {/* Rocket Body */}
+        <div className="rocket-body">
+          <div className="rocket-window"></div>
+        </div>
+        
+        {/* Rocket Fins */}
+        <div className="rocket-fin rocket-fin-left"></div>
+        <div className="rocket-fin rocket-fin-right"></div>
+        
+        {/* Exhaust Flames */}
+        <div className="rocket-exhaust">
+          <div className="flame flame-1"></div>
+          <div className="flame flame-2"></div>
+          <div className="flame flame-3"></div>
+        </div>
+      </div>
+      
+      {/* Loading Text */}
+      <div className="loading-text">
+        <span className="loading-dot">.</span>
+        <span className="loading-dot">.</span>
+        <span className="loading-dot">.</span>
+      </div>
+    </div>
   );
 }
 
@@ -597,7 +595,7 @@ auth.signOut();
 };
 
 if (authLoading) {
-return <SkeletonLoader />;
+return <RocketLoader />;
 }
 
 if (!user) {
@@ -605,7 +603,7 @@ return <LoginScreen onLogin={() => setUser(auth.currentUser)} />;
 }
 
 if (loading) {
-return <SkeletonLoader />;
+return <RocketLoader />;
 }
 
 const prediction = getPrediction();
