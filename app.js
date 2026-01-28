@@ -496,6 +496,56 @@ weekData[c.date][c.person] += c.amount;
 return Object.values(weekData);
 };
 
+// New Stats Helper Functions
+const getMostActiveContributor = () => {
+  if (contributions.length === 0) return { person: 'N/A', count: 0 };
+  
+  const counts = {};
+  PEOPLE.forEach(person => {
+    counts[person] = contributions.filter(c => c.person === person).length;
+  });
+  
+  const maxPerson = Object.keys(counts).reduce((a, b) => 
+    counts[a] > counts[b] ? a : b
+  );
+  
+  return { person: maxPerson, count: counts[maxPerson] };
+};
+
+const getHighestContribution = () => {
+  if (contributions.length === 0) return null;
+  
+  return contributions.reduce((max, c) => 
+    c.amount > max.amount ? c : max
+  );
+};
+
+const getContributionCount = (person) => {
+  return contributions.filter(c => c.person === person).length;
+};
+
+const getFirstContributionDate = () => {
+  if (contributions.length === 0) return null;
+  
+  const sorted = [...contributions].sort((a, b) => 
+    new Date(a.date) - new Date(b.date)
+  );
+  
+  return sorted[0].date;
+};
+
+const getMaxContributionForChart = () => {
+  const max = Math.max(...PEOPLE.map(p => getTotalByPerson(p)));
+  return max > 0 ? max : 100;
+};
+
+const getDailyTotals = () => {
+  return weeklyStats.map(day => ({
+    date: day.date,
+    total: day.Srestho + day.Shafin + day.Muwaz
+  }));
+};
+
 const handleLogout = () => {
 auth.signOut();
 };
@@ -840,96 +890,256 @@ color: darkMode ? '#cbd5e1' : '#6b7280'
 </div>
 );
 
-// Render Stats Tab
-const renderStats = () => (
-<div className="p-4 max-w-4xl mx-auto pb-20">
-<div className="rounded-2xl shadow-lg p-6 mb-6" style={ { background: 'var(--bg-secondary)' }}>
-<h2 className="text-2xl font-bold mb-4" style={ { color: 'var(--text-primary)' }}>
-📊 Weekly Statistics
-</h2>
+//// Render Stats Tab
+const renderStats = () => {
+  const weeklyTotal = weeklyStats.reduce((sum, d) => sum + d.Srestho + d.Shafin + d.Muwaz, 0);
+  const avgPerDay = (weeklyTotal / 7).toFixed(0);
+  const mostActive = getMostActiveContributor();
+  const highest = getHighestContribution();
+  const firstDate = getFirstContributionDate();
+  const maxForChart = getMaxContributionForChart();
+  const dailyTotals = getDailyTotals();
+  const maxDaily = Math.max(...dailyTotals.map(d => d.total), 1);
 
-<div className="text-sm mb-4" style={ { color: 'var(--text-secondary)' }}>
-Last 7 days contribution breakdown
-</div>
-{/* Simple Bar Chart using CSS */}
-<div className="space-y-4">
-{weeklyStats.map((day, idx) => {
-const total = day.Srestho + day.Shafin + day.Muwaz;
-const maxTotal = Math.max(...weeklyStats.map(d => d.Srestho + d.Shafin + d.Muwaz), 1);
+  return (
+    <div className="p-4 max-w-4xl mx-auto pb-20">
+      
+      {/* Overview Cards */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="rounded-xl shadow p-4 text-center" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Grand Total
+          </div>
+          <div className="text-xl font-bold" style={{ color: 'var(--accent)' }}>
+            ৳{getGrandTotal()}
+          </div>
+        </div>
+        
+        <div className="rounded-xl shadow p-4 text-center" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+            This Week
+          </div>
+          <div className="text-xl font-bold" style={{ color: 'var(--accent)' }}>
+            ৳{weeklyTotal}
+          </div>
+        </div>
+        
+        <div className="rounded-xl shadow p-4 text-center" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Avg/Day
+          </div>
+          <div className="text-xl font-bold" style={{ color: 'var(--accent)' }}>
+            ৳{avgPerDay}
+          </div>
+        </div>
+      </div>
 
-return (
-<div key={idx}>
-<div className="text-xs mb-1" style={ { color: 'var(--text-secondary)' }}>
-{new Date(day.date).toLocaleDateString('en-US', {
-month: 'short', day: 'numeric'
-})}
-</div>
+      {/* Individual Performance - Vertical Columns */}
+      <div className="rounded-2xl shadow-lg p-6 mb-6" style={{ background: 'var(--bg-secondary)' }}>
+        <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+          📊 Individual Contributions
+        </h2>
+        
+        <div className="flex justify-around items-end h-48 mb-4">
+          {PEOPLE.map((person, idx) => {
+            const total = getTotalByPerson(person);
+            const heightPercent = (total / maxForChart) * 100;
+            const colors = {
+              'Srestho': '#3b82f6',
+              'Shafin': '#10b981',
+              'Muwaz': '#a855f7'
+            };
+            
+            return (
+              <div key={person} className="flex flex-col items-center" style={{ width: '28%' }}>
+                <div className="w-full flex justify-center items-end" style={{ height: '160px' }}>
+                  <div 
+                    className="stat-column"
+                    style={{
+                      width: '100%',
+                      height: `${heightPercent}%`,
+                      background: colors[person],
+                      borderRadius: '8px 8px 0 0',
+                      animationDelay: `${idx * 0.2}s`,
+                      position: 'relative'
+                    }}
+                  >
+                    <div 
+                      style={{
+                        position: 'absolute',
+                        top: '-25px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        fontWeight: 'bold',
+                        fontSize: '14px',
+                        color: 'var(--text-primary)',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      ৳{total}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-sm font-semibold mt-2" style={{ color: 'var(--text-primary)' }}>
+                  {person}
+                </div>
+                <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                  {getContributionCount(person)}x
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-<div className="flex gap-1 h-8">
-<div
-className="bg-blue-500 rounded transition-all"
-style={ { width: `${(day.Srestho / maxTotal) * 100}%` }}
-title={`Srestho: ৳${day.Srestho}`}
-></div>
-<div
-className="bg-green-500 rounded transition-all"
-style={ { width: `${(day.Shafin / maxTotal) * 100}%` }}
-title={`Shafin: ৳${day.Shafin}`}
-></div>
-<div
-className="bg-purple-500 rounded transition-all"
-style={ { width: `${(day.Muwaz / maxTotal) * 100}%` }}
-title={`Muwaz: ৳${day.Muwaz}`}
-></div>
-</div>
+      {/* Weekly Trend - Daily Totals */}
+      <div className="rounded-2xl shadow-lg p-6 mb-6" style={{ background: 'var(--bg-secondary)' }}>
+        <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+          📈 Last 7 Days Activity
+        </h2>
+        
+        <div className="flex justify-between items-end h-32 mb-2">
+          {dailyTotals.map((day, idx) => {
+            const heightPercent = (day.total / maxDaily) * 100;
+            
+            return (
+              <div key={idx} className="flex flex-col items-center" style={{ width: '13%' }}>
+                <div className="w-full flex justify-center items-end" style={{ height: '100px' }}>
+                  <div 
+                    className="stat-column-small"
+                    style={{
+                      width: '100%',
+                      height: `${heightPercent}%`,
+                      background: 'linear-gradient(180deg, #6366f1 0%, #8b5cf6 100%)',
+                      borderRadius: '4px 4px 0 0',
+                      animationDelay: `${idx * 0.1}s`
+                    }}
+                  />
+                </div>
+                <div className="text-xs mt-2" style={{ color: 'var(--text-secondary)' }}>
+                  {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' })}
+                </div>
+                <div className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  ৳{day.total}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-<div className="text-xs mt-1 font-semibold" style={ { color: 'var(--text-primary)' }}>
-Total: ৳{total}
-</div>
-</div>
-);
-})}
-</div>
+      {/* Insights Grid */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="rounded-xl shadow p-4" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
+            Most Active
+          </div>
+          <div className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+            {mostActive.person}
+          </div>
+          <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
+            {mostActive.count} times
+          </div>
+        </div>
+        
+        <div className="rounded-xl shadow p-4" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
+            Highest Single
+          </div>
+          {highest ? (
+            <>
+              <div className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+                ৳{highest.amount}
+              </div>
+              <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                {highest.person}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>N/A</div>
+          )}
+        </div>
+        
+        <div className="rounded-xl shadow p-4" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
+            Current Streak 🔥
+          </div>
+          {Object.keys(streaks).length > 0 ? (
+            <>
+              <div className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+                {Math.max(...Object.values(streaks))} days
+              </div>
+              <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                {Object.keys(streaks).find(k => streaks[k] === Math.max(...Object.values(streaks)))}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>N/A</div>
+          )}
+        </div>
+        
+        <div className="rounded-xl shadow p-4" style={{ background: 'var(--bg-secondary)' }}>
+          <div className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
+            First Contribution
+          </div>
+          {firstDate ? (
+            <>
+              <div className="text-lg font-bold" style={{ color: 'var(--accent)' }}>
+                {new Date(firstDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </div>
+              <div className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                {new Date(firstDate).getFullYear()}
+              </div>
+            </>
+          ) : (
+            <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>N/A</div>
+          )}
+        </div>
+      </div>
 
-{/* Legend */}
-<div className="flex gap-4 mt-6 justify-center">
-<div className="flex items-center gap-2">
-<div className="w-4 h-4 bg-blue-500 rounded"></div>
-<span className="text-xs" style={ { color: 'var(--text-primary)' }}>Srestho</span>
-</div>
-<div className="flex items-center gap-2">
-<div className="w-4 h-4 bg-green-500 rounded"></div>
-<span className="text-xs" style={ { color: 'var(--text-primary)' }}>Shafin</span>
-</div>
-<div className="flex items-center gap-2">
-<div className="w-4 h-4 bg-purple-500 rounded"></div>
-<span className="text-xs" style={ { color: 'var(--text-primary)' }}>Muwaz</span>
-</div>
-</div>
-</div>
+      {/* Contribution Frequency */}
+      <div className="rounded-2xl shadow-lg p-6 mb-6" style={{ background: 'var(--bg-secondary)' }}>
+        <h2 className="text-xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+          🎯 Contribution Frequency
+        </h2>
+        
+        <div className="space-y-4">
+          {PEOPLE.map(person => {
+            const count = getContributionCount(person);
+            const maxCount = Math.max(...PEOPLE.map(p => getContributionCount(p)), 1);
+            const widthPercent = (count / maxCount) * 100;
+            
+            return (
+              <div key={person}>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {person}
+                  </span>
+                  <span className="text-sm font-bold" style={{ color: 'var(--accent)' }}>
+                    {count}x
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3 dark:bg-gray-700">
+                  <div 
+                    className="stat-bar"
+                    style={{
+                      width: `${widthPercent}%`,
+                      height: '100%',
+                      background: person === 'Srestho' ? '#3b82f6' : person === 'Shafin' ? '#10b981' : '#a855f7',
+                      borderRadius: '9999px',
+                      transition: 'width 1s ease-out'
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
-{/* Summary Cards */}
-<div className="grid grid-cols-2 gap-4 mb-6">
-<div className="rounded-xl shadow p-4" style={ { background: 'var(--bg-secondary)' }}>
-<div className="text-sm" style={ { color: 'var(--text-secondary)' }}>
-This Week
-</div>
-<div className="text-2xl font-bold" style={ { color: 'var(--accent)' }}>
-৳{weeklyStats.reduce((sum, d) => sum + d.Srestho + d.Shafin + d.Muwaz, 0)}
-</div>
-</div>
-
-<div className="rounded-xl shadow p-4" style={ { background: 'var(--bg-secondary)' }}>
-<div className="text-sm" style={ { color: 'var(--text-secondary)' }}>
-Avg/Day
-</div>
-<div className="text-2xl font-bold" style={ { color: 'var(--accent)' }}>
-৳{(weeklyStats.reduce((sum, d) => sum + d.Srestho + d.Shafin + d.Muwaz, 0) / 7).toFixed(0)}
-</div>
-</div>
-</div>
-</div>
-);
+    </div>
+  );
+};
 
 // Main Render with Bottom Navigation
 return (
